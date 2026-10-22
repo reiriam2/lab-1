@@ -27,15 +27,27 @@ submit/click у Client/app.js
   → textContent/createTextNode у Client/app.js
 ```
 
+## Маршрут severity-summary 
+
+```text
+кнопка в Client/index.html
+  → handler у Client/app.js
+  → GET /api/incidents/severity-summary
+  → IncidentEndpoints → IncidentQueries
+  → SecureLabDbContext.Incidents / таблиця incidents
+  → IncidentSeveritySummaryResponse як JSON
+  → textContent у списку
+```
+
 ## Межі довіри
 
 Доповніть таблицю щонайменше трьома конкретними спостереженнями.
 
 | Межа | Чому даним ще не можна довіряти | Де перевіряємо або обмежуємо |
 |---|---|---|
-| Користувач → Browser client | Користувач контролює введення | TODO |
-| Browser client → API | Клієнт і HTTP-запит можна змінити поза UI | TODO |
-| PostgreSQL → API → DOM | У БД може зберігатися раніше введений недовірений текст | DTO та безпечний DOM sink; доповнити |
+| Користувач → Browser client | Користувач контролює введення | Значення `<select>` статусу не є гарантією: клієнт можна обійти, тому остаточна перевірка виконується на сервері |
+| Browser client → API | Клієнт і HTTP-запит можна змінити поза UI | Маршрутне обмеження `:guid` для `id`, перевірка `status` у `GetListAsync` (400), 404 для відсутнього ресурсу; будь-який HTTP-клієнт може повторити запит без форми |
+| PostgreSQL → API → DOM | У БД може зберігатися раніше введений недовірений текст | DTO та безпечний DOM sink; доповнити: у відповідь потрапляють лише поля DTO (для summary — `severity` і `count`), а в браузері текст виводиться через `textContent`, а не як HTML |
 
 ## Конфігураційні входи
 
@@ -43,3 +55,7 @@ submit/click у Client/app.js
 - `src/SecureLab.Api/appsettings*.json` — режим міграцій і локальний connection string;
 - `infra/compose.yaml` — версія PostgreSQL, порт і локальні навчальні облікові дані;
 - змінна середовища `ConnectionStrings__SecureLab` — безпечний спосіб перевизначити connection string поза репозиторієм.
+
+## Контракт summary і повернення до seed
+
+Endpoint `GET /api/incidents/severity-summary` повертає групи в порядку критичності: Low → Medium → High → Critical. Застосовано політику «лише наявні групи»: рівень без інцидентів у відповідь не потрапляє, тому на початковому seed повертаються Low, Medium і High по одному інциденту, а Critical відсутній. Щоб повернути навчальний стенд до відомого стану, зупиніть API й виконайте `dotnet run --project src/SecureLab.Api -- --reset-database` (без `--no-build`, якщо код змінювався).

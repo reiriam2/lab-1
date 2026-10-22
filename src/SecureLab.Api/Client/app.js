@@ -108,4 +108,27 @@ filterForm.addEventListener("submit", (event) => {
   loadIncidents();
 });
 
+const summaryButton = document.querySelector("#summary-button");
+const summaryStatus = document.querySelector("#summary-status");
+const summaryList = document.querySelector("#summary-list");
+
+async function loadSeveritySummary() {
+    summaryList.replaceChildren();
+    summaryStatus.textContent = "Завантаження…";
+
+    try {
+        const summary = await apiFetch("/api/incidents/severity-summary");
+        for (const entry of summary) {
+            const item = document.createElement("li");
+            item.textContent = `${entry.severity}: ${entry.count}`;
+            summaryList.append(item);
+        }
+        summaryStatus.textContent = `Груп: ${summary.length}`;
+    } catch (error) {
+        summaryStatus.textContent = `Помилка: ${error.message}`;
+    }
+}
+
+summaryButton.addEventListener("click", loadSeveritySummary);
+
 loadIncidents();
