@@ -18,34 +18,40 @@
   </header>
 
   <main>
-    <section class="panel" aria-labelledby="list-title">
-      <div class="toolbar">
-        <div>
-          <h2 id="list-title">Інциденти</h2>
-          <p id="list-status" role="status">Завантаження…</p>
-        </div>
-        <form id="filter-form">
-          <label for="status-filter">Статус</label>
-          <select id="status-filter" name="status">
-            <option value="">Усі</option>
-            <option value="New">New</option>
-            <option value="Triaged">Triaged</option>
-            <option value="InProgress">InProgress</option>
-            <option value="Resolved">Resolved</option>
-            <option value="Closed">Closed</option>
-          </select>
-          <button type="submit">Застосувати</button>
-        </form>
-      </div>
-      <ul id="incident-list" class="incident-list"></ul>
-    </section>
+      <section class="panel" aria-labelledby="list-title">
+          <div class="toolbar">
+              <div>
+                  <h2 id="list-title">Інциденти</h2>
+                  <p id="list-status" role="status">Завантаження…</p>
+              </div>
+              <form id="filter-form">
+                  <label for="status-filter">Статус</label>
+                  <select id="status-filter" name="status">
+                      <option value="">Усі</option>
+                      <option value="New">New</option>
+                      <option value="Triaged">Triaged</option>
+                      <option value="InProgress">InProgress</option>
+                      <option value="Resolved">Resolved</option>
+                      <option value="Closed">Closed</option>
+                  </select>
+                  <button type="submit">Застосувати</button>
+              </form>
+          </div>
+          <ul id="incident-list" class="incident-list"></ul>
+      </section>
 
-    <section class="panel" aria-labelledby="details-title">
-      <h2 id="details-title">Деталі</h2>
-      <div id="incident-details" class="details-placeholder">
-        Виберіть інцидент зі списку.
-      </div>
-    </section>
+      <section class="panel" aria-labelledby="details-title">
+          <h2 id="details-title">Деталі</h2>
+          <div id="incident-details" class="details-placeholder">
+              Виберіть інцидент зі списку.
+          </div>
+      </section>
+      <section class="panel" aria-labelledby="summary-title">
+          <h2 id="summary-title">Підсумок за severity</h2>
+          <button id="summary-button" type="button">Показати підсумок</button>
+          <p id="summary-status" role="status">Ще не запитували.</p>
+          <ul id="summary-list"></ul>
+      </section>
   </main>
 </body>
 </html>
