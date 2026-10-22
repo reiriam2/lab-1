@@ -85,4 +85,31 @@ Content-Type: application/json
   "status": "Closed"
 }
 
+### Перевірка створеного інциденту
 GET {{api}}/api/incidents/2607e10a-c51b-4a96-a084-52f2b055831d
+
+
+### S-01 A — звичайний пошук
+GET {{api}}/api/incidents/search?q=USB
+
+### S-01 B — значення, якого немає
+GET {{api}}/api/incidents/search?q=zz-no-match
+
+### S-01 C — контрольний ввід 
+GET {{api}}/api/incidents/search?q=zz-no-match%27%20OR%20TRUE%20--%20
+
+### S-01 D — легітимний апостроф
+GET {{api}}/api/incidents/search?q=O%27Brien
+
+
+### T-05 — невідоме сортування 
+GET {{api}}/api/incidents/search?sortBy=price
+
+### % як буквальний символ 
+GET {{api}}/api/incidents/search?q=%25
+
+### сортування severity
+GET {{api}}/api/incidents/search?sortBy=severity
+
+### сортування status
+GET {{api}}/api/incidents/search?sortBy=status
