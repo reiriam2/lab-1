@@ -10,11 +10,10 @@ namespace SecureLab.Api.Tests;
 public sealed class CreateIncidentTests(SecureLabApiFactory factory)
     : IClassFixture<SecureLabApiFactory>
 {
-    private readonly HttpClient _client = factory.CreateClient();
-
-    [Fact] // T-02
+    [Fact] // T-02 (ЛР 2)
     public async Task Post_WithInvalidSeverity_Returns400WithSeverityKey()
     {
+        using var client = await factory.LoginAsync("alice", StudyPassword.Value);
         var body = new
         {
             title = $"T02-{Guid.NewGuid():N}",
@@ -23,7 +22,7 @@ public sealed class CreateIncidentTests(SecureLabApiFactory factory)
             occurredAtUtc = DateTimeOffset.UtcNow.AddMinutes(-10)
         };
 
-        using var response = await _client.PostAsJsonAsync("/api/incidents", body);
+        using var response = await client.PostAsJsonAsync("/api/incidents", body);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("application/problem+json",
@@ -35,10 +34,11 @@ public sealed class CreateIncidentTests(SecureLabApiFactory factory)
         Assert.DoesNotContain("Exception", json, StringComparison.Ordinal);
     }
 
-    [Fact] // T-03
+    [Fact] // T-03 (ЛР 2)
     public async Task Post_WithDuplicateActiveTitle_Returns409()
     {
         var title = $"Regression-{Guid.NewGuid():N}";
+        using var client = await factory.LoginAsync("alice", StudyPassword.Value);
         var body = new
         {
             title,
@@ -49,10 +49,10 @@ public sealed class CreateIncidentTests(SecureLabApiFactory factory)
 
         try
         {
-            using var first = await _client.PostAsJsonAsync("/api/incidents", body);
+            using var first = await client.PostAsJsonAsync("/api/incidents", body);
             Assert.Equal(HttpStatusCode.Created, first.StatusCode);
 
-            using var second = await _client.PostAsJsonAsync("/api/incidents", body);
+            using var second = await client.PostAsJsonAsync("/api/incidents", body);
             Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
             Assert.Equal("application/problem+json",
                 second.Content.Headers.ContentType?.MediaType);
