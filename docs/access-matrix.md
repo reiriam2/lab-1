@@ -1,12 +1,19 @@
-# Матриця доступу — робочий шаблон
+# Матриця контролю доступу 
 
-У початковому стані ЛР 1 автентифікації та авторизації ще немає. Не трактуйте
-цей файл як реалізовану політику. Заповніть і реалізуйте матрицю у ЛР 3–4.
+## 1. Політика HTTP-відмов та видимості ресурсів
+- **Анонімний запит (без перевіреного principal):** `401 Unauthorized` (`application/problem+json`), без HTML-редиректу `302`.
+- **Політика для чужого головного та дочірнього ресурсу (`Reporter` звертається до чужого `Incident` або `IncidentComment`, а також до внутрішнього коментаря):** обрано політику приховування існування ресурсу **`404 Not Found`**. Сервер повертає однаковий об'єкт Problem Details (`title: "Інцидент не знайдено"` або `"Коментар не знайдено"`, `status: 404`) як для неіснуючого `Guid`, так і для існуючого чужого об'єкта (відрізняється лише кореляційний `traceId`).
+- **Політика для привілейованої дії (`POST /api/incidents/{id}/triage`):** недостатня роль (`Reporter` або `Administrator` замість `Analyst`) повертає **`403 Forbidden`** (`application/problem+json`) із записом безпечної аудиторської події `authorization.denied`. Якщо роль `Analyst` підтверджена, але поточний статус інциденту не `New`, повертається **`409 Conflict`**.
 
-| Дія | Reporter | Analyst | Administrator | Власник ресурсу має значення? | Стан реалізації |
-|---|---:|---:|---:|---:|---|
-| Перегляд списку | TODO | TODO | TODO | TODO | Не реалізовано |
-| Перегляд деталей | TODO | TODO | TODO | Так | Не реалізовано |
-| Створення інциденту | TODO | TODO | TODO | Сервер призначає власника | Не реалізовано |
-| Зміна severity/status | Ні | TODO | TODO | TODO | Не реалізовано |
-| Перегляд internal comment | Ні | Так | TODO | Ні | Не реалізовано |
+## 2. Таблиця прав доступу за ролями та володінням
+
+| Дія та маршрут | Рівень | Анонім | Reporter | Analyst | Administrator | Власник ресурсу має значення? | Стан реалізації та перевірка |
+|---|---|---|---|---|---|---|---|
+| **Перегляд списку** `GET /api/incidents` | добрий | deny (`401`) | allow: лише власні інциденти (`OwnerUserId == userId`) | allow: усі інциденти для аналізу | deny: порожній список (немає явного дозволу в контракті 2-A) | Так, для `Reporter` | `IncidentQueries.GetListAsync`; тест `A-05` |
+| **Перегляд деталей** `GET /api/incidents/{id}` | достатній (entry ЛР 5) | deny (`401`) | owner — allow (`200`); non-owner — deny (`404`) | allow (`200`) для аналізу інциденту | deny (`404`, немає явного правила обходу ownership) | Так, для `Reporter` | `IncidentEndpoints.GetDetailsAsync`; тести `A-01`, `A-02`, `A-03`, `A-03R`, `A-10` |
+| **Створення інциденту** `POST /api/incidents` | baseline ЛР 3 | deny (`401`) | allow (`201`), сервер призначає `OwnerUserId` з `principal` | allow (`201`) | allow (`201`) | Сервер призначає власника з `HttpContext.User` | `Lab02Endpoints.MapLab02Endpoints`; тести `ProtectedCreateTests` |
+| **Update content** `PUT /api/incidents/{id}` | добрий | deny (`401`) | owner — allow (`204`, зміна лише `Title`, `Description`); non-owner — deny (`404`) | deny (`404`, аналітик не редагує чужий контент) | deny (`404`) | Так, дозволено лише власнику `Reporter` | `IncidentEndpoints.UpdateAsync`, `UpdateIncidentRequest`; тести `A-04`, `A-08a` |
+| **Delete** `DELETE /api/incidents/{id}` | добрий | deny (`401`) | owner зі статусом `New` — allow (`204`); owner не `New` — deny (`409`); non-owner — deny (`404`) | deny (`404`) | deny (`404`) | Так, лише власник `Reporter` для запису в стані `New` | `IncidentEndpoints.DeleteAsync`; тест `A-04` |
+| **Зміна статусу (Triage)** `POST /api/incidents/{id}/triage` | добрий | deny (`401`) | deny (`403 Forbidden` + audit `authorization.denied`) | allow (`204`) лише для переходу `New -> Triaged`; інший статус — `409 Conflict` | deny (`403 Forbidden` + audit `authorization.denied`) | Ні, визначається роллю `Analyst` та поточним статусом `New` | `IncidentEndpoints.TriageAsync`; тести `A-06`, `A-07`, `A-09` |
+| **Перегляд коментаря (child)** `GET /api/incident-comments/{id}` та проєкція деталей | добрий | deny (`401`) | allow (`200`) лише якщо `IsInternal == false` і є доступ до батьківського інциденту; інакше deny (`404`) | allow (`200`) для публічних і внутрішніх (`IsInternal == true`) після перевірки parent incident | deny (`404`) | Так, перевіряється доступ до батьківського `Incident` + роль для `IsInternal` | `IncidentEndpoints.GetCommentAsync`, `IncidentQueries.GetDetailsAsync`; тест `A-12` |
+| **Пошук і зведення** (`search`, `severity-summary`) | відмінний (`A-11`) | не виконувалось (рівень «Добре») | не виконувалось | не виконувалось | не виконувалось | — | Не входить до обраного рівня «Добре» |

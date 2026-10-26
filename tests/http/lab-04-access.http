@@ -1,0 +1,90 @@
+@host = http://localhost:5080
+@aliceIncidentId = 20000000-0000-0000-0000-000000000001
+@bobIncidentId = 20000000-0000-0000-0000-000000000002
+@aliceNewIncidentId = 20000000-0000-0000-0000-000000000003
+@unknownIncidentId = 99999999-9999-9999-9999-999999999999
+@bobCommentId = 30000000-0000-0000-0000-000000000002
+@internalCommentId = 30000000-0000-0000-0000-000000000003
+
+### 1. Login Alice (Reporter)
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "userName": "alice",
+  "password": "{{$processEnv SeedUsers__Password}}"
+}
+
+### 2. A-02: Alice reads her own incident (expect 200 OK)
+GET {{host}}/api/incidents/{{aliceIncidentId}}
+Accept: application/json
+
+### 3. A-03 (PoC IDOR/BOLA): Alice reads Bob's incident (BEFORE fix: 200 OK defect; AFTER fix: 404 Not Found)
+GET {{host}}/api/incidents/{{bobIncidentId}}
+Accept: application/json
+
+### 4. A-10: Alice reads non-existent incident (expect 404 Not Found with identical ProblemDetails shape)
+GET {{host}}/api/incidents/{{unknownIncidentId}}
+Accept: application/json
+
+### 5. A-05: Alice requests incident list (AFTER fix: only Alice's incidents 0001, 0003, 0005)
+GET {{host}}/api/incidents
+Accept: application/json
+
+### 6. A-04: Alice tries to update Bob's incident (expect 404 Not Found, Bob state unchanged)
+PUT {{host}}/api/incidents/{{bobIncidentId}}
+Content-Type: application/json
+
+{
+  "title": "Unauthorized change by Alice",
+  "description": "This change must be rejected by server."
+}
+
+### 7. A-08a: Alice updates her own incident with forged server-managed fields (expect 204, owner/status unchanged)
+PUT {{host}}/api/incidents/{{aliceNewIncidentId}}
+Content-Type: application/json
+
+{
+  "title": "Перевірка журналу комп'ютерного класу (оновлено)",
+  "description": "Текст <script> має відображатися як текст, а не виконуватися як HTML.",
+  "ownerUserId": "10000000-0000-0000-0000-000000000002",
+  "role": "Administrator",
+  "status": "Closed"
+}
+
+### 8. A-12: Alice tries to read comment on Bob's incident directly (expect 404 Not Found)
+GET {{host}}/api/incident-comments/{{bobCommentId}}
+Accept: application/json
+
+### 9. A-12b: Alice tries to read internal comment on her own incident (expect 404 Not Found)
+GET {{host}}/api/incident-comments/{{internalCommentId}}
+Accept: application/json
+
+### 10. A-06 & A-09: Alice (Reporter) tries privileged triage on her New incident (expect 403 Forbidden + audit log)
+POST {{host}}/api/incidents/{{aliceNewIncidentId}}/triage
+Content-Type: application/json
+
+{}
+
+### 11. Login Morgan (Analyst)
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "userName": "morgan",
+  "password": "{{$processEnv SeedUsers__Password}}"
+}
+
+### 12. A-03R: Morgan (Analyst) reads Alice's incident for analysis (expect 200 OK, includes internal comment)
+GET {{host}}/api/incidents/{{aliceIncidentId}}
+Accept: application/json
+
+### 13. A-07: Morgan (Analyst) executes triage on New incident-3 (expect 204 No Content, status -> Triaged)
+POST {{host}}/api/incidents/{{aliceNewIncidentId}}/triage
+Content-Type: application/json
+
+{}
+
+### 14. Verify incident-3 status is now Triaged after Morgan's triage
+GET {{host}}/api/incidents/{{aliceNewIncidentId}}
+Accept: application/json
