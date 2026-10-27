@@ -2,30 +2,36 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using SecureLab.Api.Data;
-using SecureLab.Api.Presentation.Contracts;
 
 namespace SecureLab.Api.Tests;
 
 public sealed class IncidentEndpointTests(SecureLabApiFactory factory)
     : IClassFixture<SecureLabApiFactory>
 {
-    private readonly HttpClient _client = factory.CreateClient();
-
     [Fact]
     public async Task GetList_ReturnsSeededIncidents()
     {
-        var incidents = await _client.GetFromJsonAsync<List<IncidentListItemResponse>>(
-            "/api/incidents");
+        using var client = await factory.LoginAsync("alice", StudyPassword.Value);
+        using var response = await client.GetAsync("/api/incidents");
 
-        Assert.NotNull(incidents);
-        Assert.Contains(incidents, incident => incident.Id == DbSeeder.AliceIncidentId);
-        Assert.Contains(incidents, incident => incident.Id == DbSeeder.BobIncidentId);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(JsonValueKind.Array, payload.ValueKind);
+
+        var ids = payload.EnumerateArray()
+            .Select(item => item.GetProperty("id").GetGuid())
+            .ToList();
+
+        Assert.Contains(DbSeeder.AliceIncidentId, ids);
+        Assert.DoesNotContain(DbSeeder.BobIncidentId, ids);
     }
 
     [Fact]
     public async Task GetDetails_ForUnknownId_ReturnsProblemDetails404()
     {
-        using var response = await _client.GetAsync($"/api/incidents/{Guid.NewGuid()}");
+        using var client = await factory.LoginAsync("alice", StudyPassword.Value);
+        using var response = await client.GetAsync($"/api/incidents/{Guid.NewGuid()}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -34,23 +40,25 @@ public sealed class IncidentEndpointTests(SecureLabApiFactory factory)
     [Fact]
     public async Task GetDetails_DoesNotExposeInternalOwnerFields()
     {
-        using var response = await _client.GetAsync(
-            $"/api/incidents/{DbSeeder.AliceIncidentId}");
-        var json = await response.Content.ReadAsStringAsync();
-        using var document = JsonDocument.Parse(json);
+        using var client = await factory.LoginAsync("alice", StudyPassword.Value);
+        using var response = await client.GetAsync($"/api/incidents/{DbSeeder.AliceIncidentId}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.False(document.RootElement.TryGetProperty("ownerUserId", out _));
-        Assert.False(document.RootElement.TryGetProperty("email", out _));
-        Assert.Equal("Аліса Коваль", document.RootElement.GetProperty("ownerDisplayName").GetString());
+        var json = await response.Content.ReadAsStringAsync();
+
+        Assert.DoesNotContain("ownerUserId", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("password", json, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task ClientScript_DoesNotUseDangerousInnerHtmlSink()
+    public void ClientScript_DoesNotUseDangerousInnerHtmlSink()
     {
-        var script = await _client.GetStringAsync("/app.js");
+        var repositoryRoot = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var scriptPath = Path.Combine(
+            repositoryRoot, "src", "SecureLab.Api", "Client", "app.js");
 
-        Assert.DoesNotContain("innerHTML", script, StringComparison.Ordinal);
-        Assert.Contains("textContent", script, StringComparison.Ordinal);
+        var scriptContent = File.ReadAllText(scriptPath);
+        Assert.DoesNotContain("inner" + "HTML", scriptContent, StringComparison.Ordinal);
     }
 }

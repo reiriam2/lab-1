@@ -28,3 +28,7 @@ public sealed record IncidentCommentResponse(
 public sealed record IncidentSeveritySummaryResponse(
     string Severity,
     int Count);
+
+public sealed record UpdateIncidentRequest(
+    string? Title,
+    string? Description);

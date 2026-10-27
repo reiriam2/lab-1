@@ -18,6 +18,11 @@ public static class DbSeeder
     public static readonly Guid AliceIncidentId = Guid.Parse("20000000-0000-0000-0000-000000000001");
     public static readonly Guid BobIncidentId = Guid.Parse("20000000-0000-0000-0000-000000000002");
     public static readonly Guid SafeTextIncidentId = Guid.Parse("20000000-0000-0000-0000-000000000003");
+    public static readonly Guid AliceNewIncidentId = SafeTextIncidentId;
+
+    public static readonly Guid AlicePublicCommentId = Guid.Parse("30000000-0000-0000-0000-000000000001");
+    public static readonly Guid BobPublicCommentId = Guid.Parse("30000000-0000-0000-0000-000000000002");
+    public static readonly Guid AliceInternalCommentId = Guid.Parse("30000000-0000-0000-0000-000000000003");
 
     private static readonly Guid ReporterRoleId =
         Guid.Parse("50000000-0000-0000-0000-000000000001");
@@ -85,7 +90,7 @@ public static class DbSeeder
         };
         var safeTextIncident = new Incident
         {
-            Id = Guid.Parse("20000000-0000-0000-0000-000000000003"),
+            Id = SafeTextIncidentId,
             Owner = alice,
             Title = "Перевірка журналу комп'ютерного класу",
             Description = "Текст <script> має відображатися як текст, а не виконуватися як HTML.",
@@ -100,7 +105,7 @@ public static class DbSeeder
         dbContext.IncidentComments.AddRange(
             new IncidentComment
             {
-                Id = Guid.Parse("30000000-0000-0000-0000-000000000001"),
+                Id = AlicePublicCommentId,
                 Incident = aliceIncident,
                 Author = morgan,
                 Text = "Заголовки листа передано аналітику.",
@@ -109,13 +114,23 @@ public static class DbSeeder
             },
             new IncidentComment
             {
-                Id = Guid.Parse("30000000-0000-0000-0000-000000000002"),
+                Id = BobPublicCommentId,
                 Incident = bobIncident,
                 Author = morgan,
                 Text = "Розпочато перевірку журналу автентифікації.",
                 IsInternal = false,
                 CreatedAtUtc = new DateTimeOffset(2026, 8, 2, 14, 40, 0, TimeSpan.Zero)
+            },
+            new IncidentComment
+            {
+                Id = AliceInternalCommentId,
+                Incident = aliceIncident,
+                Author = morgan,
+                Text = "Внутрішня нотатка аналітика: перевірити логи поштового шлюзу.",
+                IsInternal = true,
+                CreatedAtUtc = new DateTimeOffset(2026, 8, 1, 10, 0, 0, TimeSpan.Zero)
             });
+
         dbContext.IncidentStatusHistory.Add(
             new IncidentStatusHistory
             {
@@ -161,6 +176,13 @@ public static class DbSeeder
         var existing = await userManager.FindByIdAsync(id.ToString());
         if (existing is not null)
         {
+            if (existing.AccessFailedCount > 0 || existing.LockoutEnd is not null)
+            {
+                existing.AccessFailedCount = 0;
+                existing.LockoutEnd = null;
+                await userManager.UpdateAsync(existing);
+            }
+
             if (!await userManager.HasPasswordAsync(existing))
             {
                 EnsureSucceeded(await userManager.AddPasswordAsync(existing,
