@@ -7,7 +7,7 @@
 
 - Базовий тег: `v0.3.0`; робоча гілка: `lab/4-authorization`; фінальний тег: `v0.4.0`
 - Vulnerable commit: `1550981c483b9801d2d70dcecf113c9a804014dd`
-- Fixed commit: `<FIXED_SHA>`
+- Fixed commit: `c99229eab9a8a019390c8c8507416844c5789518 `
 - Результат тестів на fixed-стані: `Passed: 30, Failed: 0`
 
 
